@@ -154,7 +154,7 @@ class QuestionBase(DBBase):
 class QuestionService:
     QuesMode = QuestionMode.NULL
 
-    def __init__(self, assets_path: str = "") -> None:
+    def __init__(self, assets_path: str = ""):
         """题目管理接口初始化时需提供跨平台的资源文件夹路径"""
         self.QBase = QuestionBase(assets_path)
 
