@@ -34,11 +34,12 @@ class QuestionMode(IntEnum):
 
 
 class QuesBody:
-    def __init__(self, qid: int, question: str, options: list[str], answer:int|None=None):
+    def __init__(self, qid: int, question: str, options: list[str], answer:int|None=None, ans_aly:bool=False):
         self.qid = qid
         self.question = question
         self.options = options
         self.ans = answer
+        self.ans_aly = ans_aly
 
 
 class DBBase:
@@ -56,6 +57,12 @@ class DBBase:
         par = (stat, qid)
         self.DB.execute("UPDATE QUES SET STAT = ? WHERE ID = ?", par)
         self.DB.commit()
+
+    def get_ans_sly(self, qid:int) -> bool:
+        res = self.DB.execute("SELECT STAT FROM QUES WHERE ID = ?", (qid,))
+        res = res.fetchall()[0]   #fetchall以tuple[tuple]返回，需先拿到预期的行tuple
+        # STAT=NULL为未回答，对应None。如查询结果是None会返回True，即已回答，需取反为正确含义
+        return not res[0] is None
 
     def exec(self, sql: str, par: dict | tuple | list = ()) -> sqlite3.Cursor:
         """执行自定义SQL并自动提交事务"""
@@ -140,16 +147,18 @@ class QuestionBase(DBBase):
         self.DB.commit()
 
     def get_ques(self, direction:bool=True, is_mem:bool=False) -> QuesBody:
-        ans = None
         if direction:
             self.ques_curr += 1
         else:
             self.ques_curr -= 1
-        if self.ques_curr < 0: raise IndexError("list index out of range.")
+        if self.ques_curr < 0:
+            self.ques_curr = -1
+            raise IndexError("list index out of range.")
         qid = self.ques_list[self.ques_curr]
         qbody = self.QUES[qid]
-        if is_mem: ans = qbody["correct_index"]
-        return QuesBody(qid, qbody["question"], qbody["options"], ans)
+        ans = qbody["correct_index"]
+        ans_aly = self.get_ans_sly(qid)
+        return QuesBody(qid, qbody["question"], qbody["options"], ans, ans_aly)
 
 
 class QuestionService:
@@ -195,16 +204,10 @@ class QuestionService:
         self.QBase.rebuild_db()
 
     def get_down_ques(self) -> QuesBody:
-        if self.QuesMode != QuestionMode.MemQues:
-            return self.QBase.get_ques()
-        else:
-            return self.QBase.get_ques(is_mem=True)
+        return self.QBase.get_ques()
 
     def get_up_ques(self) -> QuesBody:
-        if self.QuesMode != QuestionMode.MemQues:
-            return self.QBase.get_ques(True)
-        else:
-            return self.QBase.get_ques(True, True)
+        return self.QBase.get_ques(False)
 
 
 if __name__ == "__main__":
