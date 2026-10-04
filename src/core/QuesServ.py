@@ -45,7 +45,7 @@ class DBBase:
     def __init__(self, db_path):
         self.DB = sqlite3.connect(path_join(db_path, "database.db"))
 
-    def select_id(self, column: DBEnum.Column, value: OptionEnum, need_min: bool = False,) -> sqlite3.Cursor:
+    def select_id(self, column:DBEnum.Column, value:OptionEnum, need_min:bool=False) -> sqlite3.Cursor:
         """在数据库查找符合需求的id"""
         val = "ID"
         if need_min: val = "MIN(ID)"
@@ -74,6 +74,11 @@ class QuestionBase(DBBase):
         with open(path_join(path, "question.json"), "r", encoding="utf-8") as f:
             ques = load(f)
             self.QUES = {int(qid): que for qid, que in ques.items()}
+        #如果QUES表不存在则新建并初始化
+        db_res = self.exec("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='QUES')")
+        if not db_res.fetchone()[0]:
+            self.exec("CREATE TABLE QUES(ID INT PRIMARY KEY NOT NULL,STAT BOOL,TYPE BOOL)")
+            self.rebuild_db()
 
     def null_mode_init(self):
         raise TypeError("Question mode not set.")
@@ -117,7 +122,7 @@ class QuestionBase(DBBase):
         return QuesBody(qid, body["question"], body["optstion"], body["correct_index"])
 
     def rebuild_db(self):
-        """尝试删除现有状态表，然后根据题库重建映射"""
+        """清空现有状态表，然后根据题库重建映射"""
         qids = tuple(self.QUES)
         qtypes = []
         for qid in qids:
@@ -126,11 +131,7 @@ class QuestionBase(DBBase):
                 qtypes.append(True)
             else:
                 qtypes.append(False)
-        db_res = self.exec("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='QUES')")
-        if db_res.fetchone()[0]:
-            self.exec("DELETE FROM QUES")
-        else:
-            self.exec("CREATE TABLE QUES(ID INT PRIMARY KEY NOT NULL,STAT BOOL,TYPE BOOL)")
+        self.exec("DELETE FROM QUES")
         par = []
         for i,t in zip(qids, qtypes):
             tmp = (i,t)
