@@ -36,10 +36,16 @@ class QuestionMode(IntEnum):
 class QuesBody:
     def __init__(self, qid: int, question: str, options: list[str], answer:int|None=None, ans_aly:bool=False):
         self.qid = qid
-        self.question = question
-        self.options = options
+        self.ques = question
+        self.opts = options
         self.ans = answer
         self.ans_aly = ans_aly
+
+    def keys(self):
+        return "qid", "ques", "opts", "ans", "ans_aly"
+
+    def __getitem__(self, item):
+        return getattr(self, item)
 
 
 class DBBase:
@@ -146,7 +152,7 @@ class QuestionBase(DBBase):
         self.DB.executemany("INSERT INTO QUES VALUES (?, NULL, ?)",par)
         self.DB.commit()
 
-    def get_ques(self, direction:bool=True, is_mem:bool=False) -> QuesBody:
+    def get_ques(self, direction:bool=True) -> QuesBody:
         if direction:
             self.ques_curr += 1
         else:
