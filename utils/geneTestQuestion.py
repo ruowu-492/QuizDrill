@@ -10,7 +10,6 @@ parse.add_argument("-c", "--choratid", type=float, default=0.6, help="浮点值,
 parse.add_argument("-o", "--output", type=str, default="", help="字符串，文件输出目录,默认脚本运行目录")
 args = parse.parse_args()
 
-questions = {}
 ques_len = args.lenques   #测试数据的生成量不会高于该值
 choice_ratid = args.choratid   #多选题的比例
 
@@ -33,11 +32,11 @@ for _ in range(choice_len):
 for _ in range(jubg_len):
     ques_list.append(gene_ques(False))
 
-ques_dict = {}
+questions = {}
 qid = 1000
 for ques in ques_list:
-    ques_dict[qid] = ques
+    questions[qid] = ques
     qid += 1
 
 with open(join(args.output, "question.json"), "tw", encoding="utf8") as qf:
-    dump(ques_dict, qf, ensure_ascii=False)
+    dump(questions, qf, ensure_ascii=False)
