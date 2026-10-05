@@ -25,12 +25,12 @@ class DBEnum:
     Type = TypeEnum
 # 工作模式枚举
 class QuestionMode(IntEnum):
-    NULL = 0
-    Order = 1
-    NewQues = 2
-    ErrQues = 3
-    Exam = 4
-    MemQues = 5
+    null = 0
+    order = 1
+    new = 2
+    err = 3
+    exam = 4
+    mem = 5
 
 
 class QuesBody:
@@ -65,6 +65,7 @@ class DBBase:
         self.DB.commit()
 
     def get_ans_sly(self, qid:int) -> bool:
+        """获取用户是否答过某道题"""
         res = self.DB.execute("SELECT STAT FROM QUES WHERE ID = ?", (qid,))
         res = res.fetchall()[0]   #fetchall以tuple[tuple]返回，需先拿到预期的行tuple
         # STAT=NULL为未回答，对应None。如查询结果是None会返回True，即已回答，需取反为正确含义
@@ -168,25 +169,25 @@ class QuestionBase(DBBase):
 
 
 class QuestionService:
-    QuesMode = QuestionMode.NULL
+    QuesMode = QuestionMode.null
 
     def __init__(self, assets_path):
         """题目管理接口初始化时需提供跨平台的资源文件夹路径"""
         self.QBase = QuestionBase(assets_path)
 
-    def initques(self):
+    def init_ques(self):
         match self.QuesMode:
-            case QuestionMode.NULL:
+            case QuestionMode.null:
                 self.QBase.null_mode_init()
-            case QuestionMode.Order:
+            case QuestionMode.order:
                 self.QBase.order_mode_init()
-            case QuestionMode.NewQues:
+            case QuestionMode.new:
                 self.QBase.new_mode_init()
-            case QuestionMode.ErrQues:
+            case QuestionMode.err:
                 self.QBase.err_mode_init()
-            case QuestionMode.Exam:
+            case QuestionMode.exam:
                 self.QBase.exam_mode_init()
-            case QuestionMode.MemQues:
+            case QuestionMode.mem:
                 self.QBase.mem_mode_init()
 
     def reply(self, qid: int, answei: int) -> tuple[bool, int]:
