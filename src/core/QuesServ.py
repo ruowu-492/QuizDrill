@@ -128,6 +128,7 @@ class QuestionBase(DBBase):
         return qbody["correct_index"]
 
     def get_a_ques(self, qid:int) -> QuesBody:
+        """获取指定QID的题"""
         body = self.QUES[qid]
         return QuesBody(qid, body["question"], body["optstion"], body["correct_index"])
 
@@ -149,7 +150,8 @@ class QuestionBase(DBBase):
         self.DB.executemany("INSERT INTO QUES VALUES (?, NULL, ?)",par)
         self.DB.commit()
 
-    def get_ques(self, direction:bool=True) -> QuesBody:
+    def get_ques(self, direction:bool=True) -> QuesBody|None:
+        """题表答完后返回None,否则为QuesBody"""
         if direction:
             self.ques_curr += 1
         else:
@@ -157,7 +159,10 @@ class QuestionBase(DBBase):
         if self.ques_curr < 0:
             self.ques_curr = -1
             raise IndexError("list index out of range.")
-        qid = self.ques_list[self.ques_curr]
+        try:
+            qid = self.ques_list[self.ques_curr]
+        except IndexError:
+            return None
         qbody = self.QUES[qid]
         ans = qbody["correct_index"]
         ans_aly = self.get_ans_sly(qid)
