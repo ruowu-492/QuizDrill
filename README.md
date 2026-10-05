@@ -20,7 +20,8 @@
     * QuesServ.py - 出题和数据管理
   * ui - 前端实现
     * \_\_init\_\_.py 
-  * main.py
+  * main.py - 主程序入口
+  * main_conse.py - 控制台版本入口
 * tests - 测试脚本
 * utils - 辅助脚本
   * geneTestQuestion.py - 生成测试题库
