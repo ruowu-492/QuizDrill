@@ -49,20 +49,35 @@ class ConsoMain(Core):
                "exam:   考试模式，按考试规则进行模拟考试\n"
                "mem:    背题模式，直接提供每题的正确答案\n")
         while True:
-            ures = input("请选择新的练习模式:")
+            ures = input("选择新的练习模式(回车以取消更改):")
             if ures == '' or self.set_mode(ures):
-                self.home_page()
+                self.page = "Home"
                 return
             else:
                 print(f"没有 \"{ures}\" 模式,请重新选择\n")
 
     def home_page(self):
-        pass
+        print("******************************\n"
+              "|  欢迎使用QuizDrill控制台版本!  |\n"
+              "******************************\n\n"
+              " A.开始练习 B.修改模式 C.退出程序 \n")
+        while True:
+            ures = input("提供选项以进行下一步:")
+            match ures:
+                case "A":
+                    self.page = "AnsQues"
+                    return
+                case "B":
+                    self.page = "ModeSet"
+                    return
+                case "C":
+                    self.page = "Exit"
+                    return
 
     def ans_ques_page(self):
-        ...
+        pass
 
 
 if __name__ == "__main__":
     app = ConsoMain()
-    app.mode_guide_page()
+    app.run_cheduler()
