@@ -25,12 +25,11 @@ class DBEnum:
     Type = TypeEnum
 # 工作模式枚举
 class QuestionMode(IntEnum):
-    null = 0
-    order = 1
-    new = 2
-    err = 3
-    exam = 4
-    mem = 5
+    order = 0
+    new = 1
+    err = 2
+    exam = 3
+    mem = 4
 
 
 class QuesBody:
@@ -93,9 +92,6 @@ class QuestionBase(DBBase):
         if not db_res.fetchone()[0]:
             self.exec("CREATE TABLE QUES(ID INT PRIMARY KEY NOT NULL,STAT BOOL,TYPE BOOL)")
             self.rebuild_db()
-
-    def null_mode_init(self):
-        raise TypeError("Question mode not set.")
 
     def order_mode_init(self):
         db_res = self.select_id(DBEnum.Column.STAT, DBEnum.Stat.NotAns, need_min=True)
@@ -169,7 +165,7 @@ class QuestionBase(DBBase):
 
 
 class QuestionService:
-    QuesMode = QuestionMode.null
+    QuesMode = QuestionMode.order
 
     def __init__(self, assets_path):
         """题目管理接口初始化时需提供跨平台的资源文件夹路径"""
@@ -177,8 +173,6 @@ class QuestionService:
 
     def init_ques(self):
         match self.QuesMode:
-            case QuestionMode.null:
-                self.QBase.null_mode_init()
             case QuestionMode.order:
                 self.QBase.order_mode_init()
             case QuestionMode.new:
