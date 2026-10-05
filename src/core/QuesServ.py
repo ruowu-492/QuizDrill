@@ -46,6 +46,9 @@ class QuesBody:
     def __getitem__(self, item):
         return getattr(self, item)
 
+class StrideIndexError(IndexError):
+    pass
+
 
 class DBBase:
     def __init__(self, db_path):
@@ -129,7 +132,10 @@ class QuestionBase(DBBase):
 
     def get_a_ques(self, qid:int) -> QuesBody:
         """获取指定QID的题"""
-        body = self.QUES[qid]
+        try:
+            body = self.QUES[qid]
+        except IndexError as IE:
+            raise StrideIndexError("QuestionService.to_index: over the line index") from IE
         return QuesBody(qid, body["question"], body["optstion"], body["correct_index"])
 
     def rebuild_db(self):
