@@ -18,7 +18,6 @@ class Core:
     start_time = None
     end_time = None
 
-
     def get_mode_txt(self):
         return self.QS.QuesMode.name
 
@@ -29,6 +28,17 @@ class Core:
 
 
 class ConsoMain(Core):
+
+    def run_cheduler(self):
+        """页面调度器"""
+        while not self.page == "Exit":
+            match self.page:
+                case "ModeSet":
+                    self.mode_guide_page()
+                case "Home":
+                    self.home_page()
+                case "AnsQues":
+                    self.ans_ques_page()
 
     def mode_guide_page(self):
         print(f"当前练习模式为: {self.get_mode_txt()}\n"
