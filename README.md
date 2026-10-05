@@ -15,6 +15,8 @@
 * src - 源码
   * assrts - 静态资源
     * data - 数据资源
+      * database.db - 数据库 
+      * question.json - 题库
   * core - 后端实现
     * \_\_init\_\_.py 
     * QuesServ.py - 出题和数据管理
