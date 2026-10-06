@@ -31,6 +31,14 @@ class QuestionMode(IntEnum):
     exam = 3
     mem = 4
 
+#异常重命名分类
+class QuestionEndError(IndexError):
+    pass
+class ToIndexError(IndexError):
+    pass
+class QuestionSwitchError(IndexError):
+    pass
+
 
 class QuesBody:
     def __init__(self, qid: int, question: str, options: list[str], answer:int|None=None, ans_aly:bool=False):
@@ -82,6 +90,7 @@ class DBBase:
 
 class QuestionBase(DBBase):
     ques_list = []
+    ques_consumed = set()
     ques_curr = None
     exam_score = None
 
@@ -156,19 +165,22 @@ class QuestionBase(DBBase):
         self.DB.executemany("INSERT INTO QUES VALUES (?, NULL, ?)",par)
         self.DB.commit()
 
-    def get_ques(self, direction:bool=True) -> QuesBody|None:
+    def get_ques(self, direction:bool=True) ->QuesBody:
         """题表答完后返回None,否则为QuesBody"""
         if direction:
             self.ques_curr += 1
         else:
             self.ques_curr -= 1
-        if self.ques_curr < 0:
-            self.ques_curr = -1
-            raise IndexError("list index out of range.")
         try:
+            if self.ques_curr < 0:
+                self.ques_curr = -1
+                raise IndexError("list index out of range.")
             qid = self.ques_list[self.ques_curr]
-        except IndexError:
-            return None
+        except IndexError as IE:
+            if len(self.ques_list) == len(self.ques_consumed):   #判断练习是否完成
+                raise QuestionEndError("Practice complete.")
+            else:
+                raise QuestionSwitchError("Execute prev ques or next into a boundary.") from IE
         qbody = self.QUES[qid]
         ans = qbody["correct_index"]
         ans_aly = self.get_ans_sly(qid)
@@ -182,7 +194,7 @@ class QuestionService:
         """题目管理接口初始化时需提供跨平台的资源文件夹路径"""
         self.QBase = QuestionBase(assets_path)
 
-    def init_ques(self):
+    def init_ques(self) ->bool:
         match self.QuesMode:
             case QuestionMode.order:
                 self.QBase.order_mode_init()
@@ -194,17 +206,24 @@ class QuestionService:
                 self.QBase.exam_mode_init()
             case QuestionMode.mem:
                 self.QBase.mem_mode_init()
+        if not self.QBase.ques_list:  return False
+        return True
 
     def reply(self, qid: int, answei: int) -> tuple[bool, int]:
         """处理用户回答,返回判题结果和正确答案"""
         ans = self.QBase.get_correct_ans(qid)
         res = answei == ans
         self.QBase.update_stat(qid, res)
+        self.QBase.ques_consumed.add(qid)
         return res, ans
 
     def to_index(self, index: int) -> QuesBody:
         self.QBase.ques_curr = index-1
-        return self.QBase.get_a_ques(index)
+        try:
+            qbody = self.QBase.get_a_ques(index)
+        except IndexError as IE:
+            raise ToIndexError("index out of range.") from IE
+        return qbody
 
     def get_ques_len(self) -> int:
         return len(self.QBase.QUES)
@@ -215,10 +234,10 @@ class QuestionService:
     def rebuilt_data_base(self):
         self.QBase.rebuild_db()
 
-    def get_down_ques(self) -> QuesBody:
+    def get_next_ques(self) -> QuesBody:
         return self.QBase.get_ques()
 
-    def get_up_ques(self) -> QuesBody:
+    def get_prev_ques(self) -> QuesBody:
         return self.QBase.get_ques(False)
 
 
