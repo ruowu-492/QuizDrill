@@ -39,17 +39,20 @@ class ToIndexError(IndexError):
 class QuestionSwitchError(IndexError):
     pass
 
+def ans_to_opt(ans:int) ->str:
+    return {0:"A", 1:"B", 2:"C", 3:"D"}[ans]
+
 
 class QuesBody:
-    def __init__(self, qid: int, question: str, options: list[str], answer:int|None=None, ans_aly:bool=False):
+    def __init__(self, qid: int, question: str, options: list[str], answer:str|None=None, ans_alr:bool=False):
         self.qid = qid
         self.ques = question
         self.opts = options
         self.ans = answer
-        self.ans_aly = ans_aly
+        self.ans_alr = ans_alr
 
     def keys(self):
-        return "qid", "ques", "opts", "ans", "ans_aly"
+        return "qid", "ques", "opts", "ans", "ans_alr"
 
     def __getitem__(self, item):
         return getattr(self, item)
@@ -110,16 +113,19 @@ class QuestionBase(DBBase):
         res = db_res.fetchone()
         self.ques_curr = res[0]-1001   #初始ID为1000，对应索引0，随后递增
         self.ques_list = list(self.QUES)
+        self.ques_consumed = set()
 
     def new_mode_init(self):
         self.ques_curr = -1
         db_res = self.select_id(DBEnum.Column.STAT, DBEnum.Stat.NotAns)
         self.ques_list = [res[0] for res in db_res.fetchall()]
+        self.ques_consumed = set()
 
     def err_mode_init(self):
         self.ques_curr = -1
         db_res = self.select_id(DBEnum.Column.STAT, DBEnum.Stat.AnsError)
         self.ques_list = [res[0] for res in db_res.fetchall()]
+        self.ques_consumed = set()
 
     def exam_mode_init(self):
         self.ques_curr = -1
@@ -130,14 +136,15 @@ class QuestionBase(DBBase):
         jubg = [qid[0] for qid in db_res.fetchall()]
         jubg = sample(jubg, 20)
         self.ques_list = choice + jubg
+        self.ques_consumed = set()
 
     def mem_mode_init(self):
         self.ques_list = list(self.QUES)
         self.ques_curr = -1
 
-    def get_correct_ans(self, qid: int) -> int:
+    def get_correct_ans(self, qid:int) -> str:
         qbody = self.QUES[qid]
-        return qbody["correct_index"]
+        return ans_to_opt(qbody["correct_index"])
 
     def get_a_ques(self, qid:int) -> QuesBody:
         """获取指定QID的题"""
@@ -145,7 +152,8 @@ class QuestionBase(DBBase):
             body = self.QUES[qid]
         except IndexError as IE:
             raise StrideIndexError("QuestionService.to_index: over the line index") from IE
-        return QuesBody(qid, body["question"], body["optstion"], body["correct_index"])
+        ans_alr = True if qid in self.ques_consumed else False
+        return QuesBody(qid, body["question"], body["optstion"], ans_to_opt(body["correct_index"]), ans_alr)
 
     def rebuild_db(self):
         """清空现有状态表，然后根据题库重建映射"""
@@ -182,9 +190,9 @@ class QuestionBase(DBBase):
             else:
                 raise QuestionSwitchError("Execute prev ques or next into a boundary.") from IE
         qbody = self.QUES[qid]
-        ans = qbody["correct_index"]
-        ans_aly = self.get_ans_sly(qid)
-        return QuesBody(qid, qbody["question"], qbody["options"], ans, ans_aly)
+        ans = ans_to_opt(qbody["correct_index"])
+        ans_alr = True if qid in self.ques_consumed else False
+        return QuesBody(qid, qbody["question"], qbody["options"], ans, ans_alr)
 
 
 class QuestionService:
@@ -209,13 +217,13 @@ class QuestionService:
         if not self.QBase.ques_list:  return False
         return True
 
-    def reply(self, qid: int, answei: int) -> tuple[bool, int]:
+    def reply(self, qid: int, answei: str) -> dict:
         """处理用户回答,返回判题结果和正确答案"""
         ans = self.QBase.get_correct_ans(qid)
         res = answei == ans
         self.QBase.update_stat(qid, res)
         self.QBase.ques_consumed.add(qid)
-        return res, ans
+        return {"res":res, "ans":ans}
 
     def to_index(self, index: int) -> QuesBody:
         self.QBase.ques_curr = index-1
