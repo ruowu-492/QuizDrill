@@ -14,7 +14,7 @@ ques_len = args.lenques   #测试数据的生成量不会高于该值
 choice_ratid = args.choratid   #多选题的比例
 
 def gene_ques(qtype:bool):
-    corr_index = randint(0,4) if qtype else randint(0,1)
+    corr_index = randint(0,3) if qtype else randint(0,1)
     options = ["选项A", "选项B", "选项C", "选项D"] if qtype else ["对", "错"]
     question = f"这题答案是{corr_index}。"
     return {
