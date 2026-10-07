@@ -38,8 +38,11 @@ class ToIndexError(IndexError):
     pass
 class QuestionSwitchError(IndexError):
     pass
+class ZeroIndexError(IndexError):
+    pass
 
 def ans_to_opt(ans:int) ->str:
+    """将答案索引转为正确选项"""
     return {0:"A", 1:"B", 2:"C", 3:"D"}[ans]
 
 
@@ -56,9 +59,6 @@ class QuesBody:
 
     def __getitem__(self, item):
         return getattr(self, item)
-
-class StrideIndexError(IndexError):
-    pass
 
 
 class DBBase:
@@ -111,7 +111,10 @@ class QuestionBase(DBBase):
     def order_mode_init(self):
         db_res = self.select_id(DBEnum.Column.STAT, DBEnum.Stat.NotAns, need_min=True)
         res = db_res.fetchone()
-        self.ques_curr = res[0]-1001   #初始ID为1000，对应索引0，随后递增
+        if res[0] == ():
+            self.ques_curr = -1
+        else:
+            self.ques_curr = res[0]-1001   #初始ID为1000，对应索引0，随后递增
         self.ques_list = list(self.QUES)
         self.ques_consumed = set()
 
@@ -142,18 +145,19 @@ class QuestionBase(DBBase):
         self.ques_list = list(self.QUES)
         self.ques_curr = -1
 
-    def get_correct_ans(self, qid:int) -> str:
-        qbody = self.QUES[qid]
-        return ans_to_opt(qbody["correct_index"])
+    def get_correct_ans(self, qid:int) ->str:
+        """根据QID返回正确的选项缩写"""
+        ans = self.QUES[qid]["correct_index"]
+        return ans_to_opt(ans)
 
     def get_a_ques(self, qid:int) -> QuesBody:
         """获取指定QID的题"""
         try:
             body = self.QUES[qid]
         except IndexError as IE:
-            raise StrideIndexError("QuestionService.to_index: over the line index") from IE
+            raise ToIndexError("QuestionService.to_index: over the line index") from IE
         ans_alr = True if qid in self.ques_consumed else False
-        return QuesBody(qid, body["question"], body["optstion"], ans_to_opt(body["correct_index"]), ans_alr)
+        return QuesBody(qid, body["question"], body["options"], self.get_ans_opt(qid), ans_alr)
 
     def rebuild_db(self):
         """清空现有状态表，然后根据题库重建映射"""
@@ -181,7 +185,7 @@ class QuestionBase(DBBase):
             self.ques_curr -= 1
         try:
             if self.ques_curr < 0:
-                self.ques_curr = -1
+                self.ques_curr = 0
                 raise IndexError("list index out of range.")
             qid = self.ques_list[self.ques_curr]
         except IndexError as IE:
@@ -190,9 +194,16 @@ class QuestionBase(DBBase):
             else:
                 raise QuestionSwitchError("Execute prev ques or next into a boundary.") from IE
         qbody = self.QUES[qid]
-        ans = ans_to_opt(qbody["correct_index"])
+        ans = self.get_ans_opt(qid)
         ans_alr = True if qid in self.ques_consumed else False
         return QuesBody(qid, qbody["question"], qbody["options"], ans, ans_alr)
+
+    def get_ans_opt(self, qid) ->str:
+        """获取正确答案的完整选项"""
+        qbody = self.QUES[qid]
+        ans_index = qbody["correct_index"]
+        return qbody["options"][ans_index]
+
 
 
 class QuestionService:
@@ -223,18 +234,22 @@ class QuestionService:
         res = answei == ans
         self.QBase.update_stat(qid, res)
         self.QBase.ques_consumed.add(qid)
+        ans_opt = self.QBase.get_ans_opt(qid)
+        ans = ans+". "+ans_opt
         return {"res":res, "ans":ans}
 
     def to_index(self, index: int) -> QuesBody:
-        self.QBase.ques_curr = index-1
+        if index == 0: raise ZeroIndexError("Index is zero")
         try:
-            qbody = self.QBase.get_a_ques(index)
+            qid = self.QBase.ques_list[index-1]
+            qbody = self.QBase.get_a_ques(qid)
+            self.QBase.ques_curr = index-1
         except IndexError as IE:
             raise ToIndexError("index out of range.") from IE
         return qbody
 
     def get_ques_len(self) -> int:
-        return len(self.QBase.QUES)
+        return len(self.QBase.ques_list)
 
     def reset_stat(self):
         self.QBase.exec("UPDATE QUES SET STAT = NULL")
