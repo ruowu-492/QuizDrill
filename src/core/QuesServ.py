@@ -74,8 +74,7 @@ class DBBase:
     def update_stat(self, qid: int, stat: bool):
         """更新答题数据,自动提交事务"""
         par = (stat, qid)
-        self.DB.execute("UPDATE QUES SET STAT = ? WHERE ID = ?", par)
-        self.DB.commit()
+        self.exec("UPDATE QUES SET STAT = ? WHERE ID = ?", par)
 
     def get_ans_sly(self, qid:int) -> bool:
         """获取用户是否答过某道题"""
@@ -83,6 +82,9 @@ class DBBase:
         res = res.fetchall()[0]   #fetchall以tuple[tuple]返回，需先拿到预期的行tuple
         # STAT=NULL为未回答，对应None。如查询结果是None会返回True，即已回答，需取反为正确含义
         return not res[0] is None
+
+    def upload_exam(self, s_time:int, time_ues:int, score:int):
+        self.exec("INSERT INTO EXAMS (STRET_TIME, TIME_USE, SCORE) VALUES(?, ?, ?)", (s_time, time_ues, score))
 
     def exec(self, sql: str, par: dict | tuple | list = ()) -> sqlite3.Cursor:
         """执行自定义SQL并自动提交事务"""
@@ -95,18 +97,21 @@ class QuestionBase(DBBase):
     ques_list = []
     ques_consumed = set()
     ques_curr = None
-    exam_score = None
 
     def __init__(self, path) -> None:
         super().__init__(path)
         with open(path_join(path, "question.json"), "r", encoding="utf-8") as f:
             ques = load(f)
             self.QUES = {int(qid): que for qid, que in ques.items()}
-        #如果QUES表不存在则新建并初始化
+        #QUES表不存在则新建并初始化
         db_res = self.exec("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='QUES')")
         if not db_res.fetchone()[0]:
             self.exec("CREATE TABLE QUES(ID INT PRIMARY KEY NOT NULL,STAT BOOL,TYPE BOOL)")
             self.rebuild_db()
+        #EXAMS表不存在则新建
+        db_res = self.exec("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='EXAMS')")
+        if not db_res.fetchone()[0]:
+            self.exec("CREATE TABLE EXAMS(ID INTEGER PRIMARY KEY, START_TIME INTEGER , TIME_USE INT, SCORE INT)")
 
     def order_mode_init(self):
         db_res = self.select_id(DBEnum.Column.STAT, DBEnum.Stat.NotAns, need_min=True)
@@ -116,22 +121,16 @@ class QuestionBase(DBBase):
         else:
             self.ques_curr = res[0]-1001   #初始ID为1000，对应索引0，随后递增
         self.ques_list = list(self.QUES)
-        self.ques_consumed = set()
 
     def new_mode_init(self):
-        self.ques_curr = -1
         db_res = self.select_id(DBEnum.Column.STAT, DBEnum.Stat.NotAns)
         self.ques_list = [res[0] for res in db_res.fetchall()]
-        self.ques_consumed = set()
 
     def err_mode_init(self):
-        self.ques_curr = -1
         db_res = self.select_id(DBEnum.Column.STAT, DBEnum.Stat.AnsError)
         self.ques_list = [res[0] for res in db_res.fetchall()]
-        self.ques_consumed = set()
 
     def exam_mode_init(self):
-        self.ques_curr = -1
         db_res = self.select_id(DBEnum.Column.TYPE, DBEnum.Type.Chose)
         choice = [qid[0] for qid in db_res.fetchall()]
         choice = sample(choice, 80)
@@ -139,11 +138,9 @@ class QuestionBase(DBBase):
         jubg = [qid[0] for qid in db_res.fetchall()]
         jubg = sample(jubg, 20)
         self.ques_list = choice + jubg
-        self.ques_consumed = set()
 
     def mem_mode_init(self):
         self.ques_list = list(self.QUES)
-        self.ques_curr = -1
 
     def get_correct_ans(self, qid:int) ->str:
         """根据QID返回正确的选项缩写"""
@@ -225,6 +222,10 @@ class QuestionService:
                 self.QBase.exam_mode_init()
             case QuestionMode.mem:
                 self.QBase.mem_mode_init()
+        self.QBase.ques_consumed = set()
+        self.QBase.exam_score = 0
+        if self.QuesMode != QuestionMode.order:
+            self.QBase.ques_curr = -1
         if not self.QBase.ques_list:  return False
         return True
 
@@ -254,6 +255,9 @@ class QuestionService:
     def reset_stat(self):
         self.QBase.exec("UPDATE QUES SET STAT = NULL")
 
+    def reset_exams(self):
+        self.QBase.exec("DELETE FROM EXAMS")
+
     def rebuilt_data_base(self):
         self.QBase.rebuild_db()
 
@@ -262,6 +266,9 @@ class QuestionService:
 
     def get_prev_ques(self) -> QuesBody:
         return self.QBase.get_ques(False)
+
+    def submit_exam(self, start_time:int, time_ues:int, score):
+        self.QBase.upload_exam(start_time, time_ues, score)
 
 
 if __name__ == "__main__":

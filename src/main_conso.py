@@ -194,10 +194,10 @@ class ConsoMain(Core):
         if self.QS.QuesMode == QuestionMode.mem:
             self.mem_mode_page()
             return
-        s_time = time() ; currect = 0 ; error = 0
+        s_time = int(time()) ; currect = 0 ; error = 0
         qid, opts_list, ans_alr= self.propose_ques()
         err = False
-        ans_end = lambda :input(f"{ans_summa(int(s_time), int(time()), currect, error)}\n(按回车返回主页)")
+        ans_end = lambda :input(f"{ans_summa(s_time, int(time()), currect, error)}\n(按回车返回主页)")
         try:
             while True:
                 if not err: res = self.commit_reply(qid, opts_list)
@@ -213,6 +213,14 @@ class ConsoMain(Core):
                             ans = res["ans"]
                             print(f"回答错误,正确答案是:{ans}")
                             input("(回车以进入下一题)")
+                        if self.QS.QuesMode == QuestionMode.exam:
+                            used_time = int(time()) - s_time
+                            if used_time < 3600:  #一小时考试时间
+                                print(f"剩余考试时间: {time_fmt(3600-used_time)}")
+                            else:
+                                print("\n考试时间结束!当前答题结果不计入成绩。")
+                                if res and currect != 0: currect -= 1
+                                raise QuestionEndError("Exam end.")
                         try:
                             qid, opts_list, ans_alr = self.propose_ques()
                         except QuestionSwitchError:
@@ -224,9 +232,14 @@ class ConsoMain(Core):
                         qid, opts_list, ans_alr = self.propose_ques(qbody)
                     case "ToHome":
                         self.Page = "Home"
+                        if self.QS.QuesMode == QuestionMode.exam:
+                            print(f"手动结算考试不进考试记录!\n本次考试得分: {currect}分")
                         ans_end()
                         return
         except QuestionEndError:
+            if self.QS.QuesMode == QuestionMode.exam:
+                self.QS.submit_exam(s_time, used_time, currect)
+                print(f"本次考试得分: {currect}分")
             ans_end()
             self.Page = "Home"
 
