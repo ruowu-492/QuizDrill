@@ -122,6 +122,8 @@ class ConsoMain(Core):
                     self.home_page()
                 case "AnsQues":
                     self.ans_ques_page()
+                case "Reset":
+                    self.reset_page()
 
     def mode_guide_page(self):
         print(f"当前练习模式为: {self.get_mode_txt()}\n"
@@ -146,7 +148,7 @@ class ConsoMain(Core):
               "|  欢迎使用QuizDrill控制台版本!  |\n"
               "******************************\n\n"
               " A.开始练习 B.修改模式\n"
-              " C.重置练习 D.退出程序")
+              " C.重置数据 D.退出程序")
         while True:
             ures = input("提供选项以进行下一步:")
             ures = ures.lower()
@@ -158,12 +160,31 @@ class ConsoMain(Core):
                     self.Page = "ModeSet"
                     return
                 case "c":
-                    ures = input("警告: 本操作会重置所有练习数据!但题库映射异常时可能被修复。\n"
-                                 "请输入\"ok\"确认重置,否则重新选择:") == "ok"
-                    if ures: self.QS.rebuilt_data_base() ; print("已重置练习记录!")
+                    self.Page = "Reset"
+                    return
                 case "d":
                     self.Page = "Exit"
                     return
+
+    def reset_page(self):
+        self.Page = "Home"
+        ures = input("\n警告: 重置操作不可恢复，请详细考虑接下来的操作!\n"
+                     "A.重置练习记录\n"
+                     "B.重置考试记录\n"
+                     "C.重建数据库\n\n"
+                     "提供选项以进行下一步(选项外的输入直接返回主页):")
+        match ures.lower():
+            case "a":
+                ures = input("\n输入\"ok\"确认重置,否则返回主页: ") == "ok"
+                if ures: self.QS.reset_stat() ; print("已重置练习记录!")
+            case "b":
+                ures = input("\n输入\"ok\"确认重置,否则返回主页: ") == "ok"
+                if ures: self.QS.reset_exams() ; print("已重置考试记录!")
+            case "c":
+                ures = input("警告: 本操作将清空练习数据并根据题库重建练习状态映射,这可能解决某些异常或题库变更问题。\n"
+                             "输入\"ok\"确认重置,否则返回主页: ") == "ok"
+                if ures: self.QS.rebuilt_data_base() ; print("已重建状态表!")
+
 
     def ans_ques_page(self):
         if not self.Ready:
