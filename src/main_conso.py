@@ -1,8 +1,9 @@
-from core.QuesServ import QuestionService, QuestionMode, QuesBody
 from core.QuesServ import QuestionSwitchError, QuestionEndError, ToIndexError, ZeroIndexError
+from core.QuesServ import QuestionService, QuestionMode, QuesBody
+from re import match as re_match
+from datetime import datetime
 from pathlib import Path
 from time import time
-from re import match as re_match
 
 
 BASE = Path(__file__).resolve().parent
@@ -11,8 +12,7 @@ QMode = {
     "exam":QuestionMode.exam, "mem":QuestionMode.mem
 }
 
-
-def time_fmt(sec:int) ->str:
+def ans_time_fmt(sec:int) ->str:
     """将秒数格式化为时分秒"""
     h, rem = divmod(sec, 3600)
     m, s = divmod(rem, 60)
@@ -27,7 +27,7 @@ def ans_summa(s_time:int, e_time:int, correct:int, error:int) ->str:
     else:
         accur = 0
     return (f"练习结束!\n"
-            f"用时:{time_fmt(time_use)}\n"
+            f"用时:{ans_time_fmt(time_use)}\n"
             f"本次练习你答了{total}题,其中正确{correct}题,错误{error}题,准确率{accur:.1%}。")
 
 
@@ -124,6 +124,8 @@ class ConsoMain(Core):
                     self.ans_ques_page()
                 case "Reset":
                     self.reset_page()
+                case "Statisti":
+                    self.statisti_page()
 
     def mode_guide_page(self):
         print(f"当前练习模式为: {self.get_mode_txt()}\n"
@@ -147,8 +149,8 @@ class ConsoMain(Core):
               "******************************\n"
               "|  欢迎使用QuizDrill控制台版本!  |\n"
               "******************************\n\n"
-              " A.开始练习 B.修改模式\n"
-              " C.重置数据 D.退出程序")
+              " A.开始练习 B.修改模式 C.重置数据\n"
+              "     D.查看统计   E.退出程序")
         while True:
             ures = input("提供选项以进行下一步:")
             ures = ures.lower()
@@ -163,6 +165,9 @@ class ConsoMain(Core):
                     self.Page = "Reset"
                     return
                 case "d":
+                    self.Page = "Statisti"
+                    return
+                case "e":
                     self.Page = "Exit"
                     return
 
@@ -185,6 +190,25 @@ class ConsoMain(Core):
                              "输入\"ok\"确认重置,否则返回主页: ") == "ok"
                 if ures: self.QS.rebuilt_data_base() ; print("已重建状态表!")
 
+    def statisti_page(self):
+        self.Page = "Home"
+        exams = self.QS.get_exam_record()
+        exams_index = list(exams) ; exams_index.sort()
+        parc_info = self.QS.get_ans_ques_info()
+        pass_rate = self.QS.get_pass_rate()
+        print("时间                    用时     得分")
+        if not exams_index:
+            print("暂无考试记录。")
+        else:
+            for i in exams_index:
+                record = exams[i]
+                dt_str = datetime.fromtimestamp(record["start_time"]).strftime("%Y-%m-%d %H:%M:%S")
+                print(f"{dt_str}   {ans_time_fmt(record["time_use"])[4:]}  {record["score"]}")
+        print("\n"
+              f"题库总量为{parc_info["ques_len"]},你已经答了{parc_info["pract_number"]}题,占比{parc_info["comple_deg"]:.2%}。\n"
+              f"其中你答对了{parc_info["corr_len"]}题,答错了{parc_info["err_len"]}题,准确率{parc_info["accuracy"]:.1%}。\n"
+              f"预估你的考试通过率为{pass_rate:.1%}。")
+        input("(按回车返回主页)")
 
     def ans_ques_page(self):
         if not self.Ready:
@@ -216,7 +240,7 @@ class ConsoMain(Core):
                         if self.QS.QuesMode == QuestionMode.exam:
                             used_time = int(time()) - s_time
                             if used_time < 3600:  #一小时考试时间
-                                print(f"剩余考试时间: {time_fmt(3600-used_time)}")
+                                print(f"剩余考试时间: {ans_time_fmt(3600 - used_time)}")
                             else:
                                 print("\n考试时间结束!当前答题结果不计入成绩。")
                                 if res and currect != 0: currect -= 1
