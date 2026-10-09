@@ -175,7 +175,7 @@ class QuestionBase(DBBase):
         self.DB.commit()
 
     def get_ques(self, direction:bool=True) ->QuesBody:
-        """题表答完后返回None,否则为QuesBody"""
+        """题表答完后抛出答题结束或题目切换异常,否则为QBody"""
         if direction:
             self.ques_curr += 1
         else:
@@ -200,7 +200,6 @@ class QuestionBase(DBBase):
         qbody = self.QUES[qid]
         ans_index = qbody["correct_index"]
         return qbody["options"][ans_index]
-
 
 
 class QuestionService:
@@ -270,6 +269,37 @@ class QuestionService:
     def submit_exam(self, start_time:int, time_ues:int, score):
         self.QBase.upload_exam(start_time, time_ues, score)
 
+    def get_ans_ques_info(self) ->dict:
+        ques_len = len(self.QBase.QUES)     #题库总量
+        db_res = self.QBase.select_id(DBEnum.Column.STAT, DBEnum.Stat.AnsCorrect)
+        corr_len = len(db_res.fetchall())   #答对数量
+        db_res = self.QBase.select_id(DBEnum.Column.STAT, DBEnum.Stat.AnsError)
+        err_len = len(db_res.fetchall())    #答错数量
+        pract_number = corr_len+err_len     #已练习总量
+        comple_deg = pract_number/ques_len  #题库完成度
+        accuracy = corr_len/pract_number    #答题准确性
+        return {"ques_len":ques_len, "corr_len":corr_len, "err_len":err_len,
+                "pract_number":pract_number, "comple_deg":comple_deg, "accuracy":accuracy}
+
+    def get_exam_record(self) ->dict[int:dict]:
+        """获取考试记录，返回格式化的字典"""
+        db_res = self.QBase.exec("SELECT * FROM EXAMS")
+        exam_record = {}
+        for record in db_res.fetchall():
+            exam_record[record[0]] = {"start_time":record[1], "time_use":record[2], "score":record[3]}
+        return exam_record
+
+    def get_pass_rate(self) ->float:
+        db_res = self.QBase.select_id(DBEnum.Column.STAT, DBEnum.Stat.AnsCorrect)
+        currect_total = len(db_res.fetchall())
+        ques_total = len(self.QBase.QUES)
+        C = currect_total/ques_total   #练习因子
+        db_res = self.QBase.exec("SELECT SCORE FROM EXAMS ORDER BY START_TIME DESC LIMIT 3")
+        exam_score_3 = sum(score[0] for score in db_res.fetchall())/3
+        E = exam_score_3/100   #考试因子
+        pass_rate = C*0.6+E*0.4
+        return pass_rate*0.999   #确保冗余概率
+
 
 if __name__ == "__main__":
     from pathlib import Path
@@ -288,6 +318,6 @@ if __name__ == "__main__":
     # QS.initques()
     # QS.QuesMode = QuestionMode.MemQues
     # QS.initques()
-    # QS.get_down_ques()
+    # QS.get_next_ques()
     # QS.to_index(10)
     pass
