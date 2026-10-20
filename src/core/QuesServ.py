@@ -47,11 +47,12 @@ def ans_to_opt(ans:int) ->str:
 
 
 class QuesBody:
-    def __init__(self, qid: int, question: str, options: list[str], answer:str|None=None, ans_alr:bool=False):
+    def __init__(self, qid: int, question: str, options: list[str], answei_index:int, answer:str|None=None, ans_alr:bool=False):
         self.qid = qid
         self.ques = question
         self.opts = options
         self.ans = answer
+        self.ans_index = answei_index
         self.ans_alr = ans_alr
 
     def keys(self):
@@ -84,7 +85,7 @@ class DBBase:
         return not res[0] is None
 
     def upload_exam(self, s_time:int, time_ues:int, score:int):
-        self.exec("INSERT INTO EXAMS (STRET_TIME, TIME_USE, SCORE) VALUES(?, ?, ?)", (s_time, time_ues, score))
+        self.exec("INSERT INTO EXAMS (START_TIME, TIME_USE, SCORE) VALUES(?, ?, ?)", (s_time, time_ues, score))
 
     def exec(self, sql: str, par: dict | tuple | list = ()) -> sqlite3.Cursor:
         """执行自定义SQL并自动提交事务"""
@@ -133,10 +134,10 @@ class QuestionBase(DBBase):
     def exam_mode_init(self):
         db_res = self.select_id(DBEnum.Column.TYPE, DBEnum.Type.Chose)
         choice = [qid[0] for qid in db_res.fetchall()]
-        choice = sample(choice, 80)
+        choice = sample(choice, 40)
         db_res = self.select_id(DBEnum.Column.TYPE, DBEnum.Type.Jubg)
         jubg = [qid[0] for qid in db_res.fetchall()]
-        jubg = sample(jubg, 20)
+        jubg = sample(jubg, 10)
         self.ques_list = choice + jubg
 
     def mem_mode_init(self):
@@ -154,7 +155,7 @@ class QuestionBase(DBBase):
         except IndexError as IE:
             raise ToIndexError("QuestionService.to_index: over the line index") from IE
         ans_alr = True if qid in self.ques_consumed else False
-        return QuesBody(qid, body["question"], body["options"], self.get_ans_opt(qid), ans_alr)
+        return QuesBody(qid, body["question"], body["options"], body["correct_index"], self.get_ans_opt(qid), ans_alr)
 
     def rebuild_db(self):
         """清空现有状态表，然后根据题库重建映射"""
@@ -189,11 +190,13 @@ class QuestionBase(DBBase):
             if len(self.ques_list) == len(self.ques_consumed):   #判断练习是否完成
                 raise QuestionEndError("Practice complete.")
             else:
+                self.ques_curr -= 1
                 raise QuestionSwitchError("Execute prev ques or next into a boundary.") from IE
         qbody = self.QUES[qid]
         ans = self.get_ans_opt(qid)
+        ans_index = qbody["correct_index"]
         ans_alr = True if qid in self.ques_consumed else False
-        return QuesBody(qid, qbody["question"], qbody["options"], ans, ans_alr)
+        return QuesBody(qid, qbody["question"], qbody["options"], ans_index, ans, ans_alr)
 
     def get_ans_opt(self, qid) ->str:
         """获取正确答案的完整选项"""
@@ -266,7 +269,7 @@ class QuestionService:
     def get_prev_ques(self) -> QuesBody:
         return self.QBase.get_ques(False)
 
-    def submit_exam(self, start_time:int, time_ues:int, score):
+    def submit_exam(self, start_time:int, time_ues:int, score:int):
         self.QBase.upload_exam(start_time, time_ues, score)
 
     def get_ans_ques_info(self) ->dict:
