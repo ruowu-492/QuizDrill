@@ -32,7 +32,7 @@ def ans_summa(s_time:int, e_time:int, correct:int, error:int) ->str:
 
 
 class Core:
-    QS = QuestionService(BASE / "assets" / "data")
+    QS = QuestionService(BASE / "assets")
     Page = "ModeSet"
     QS.init_ques()
     def __init__(self):
@@ -193,15 +193,13 @@ class ConsoMain(Core):
     def statisti_page(self):
         self.Page = "Home"
         exams = self.QS.get_exam_record()
-        exams_index = list(exams) ; exams_index.sort()
         parc_info = self.QS.get_ans_ques_info()
         pass_rate = self.QS.get_pass_rate()
         print("时间                    用时     得分")
-        if not exams_index:
+        if not exams:
             print("暂无考试记录。")
         else:
-            for i in exams_index:
-                record = exams[i]
+            for record in exams:
                 dt_str = datetime.fromtimestamp(record["start_time"]).strftime("%Y-%m-%d %H:%M:%S")
                 print(f"{dt_str}   {ans_time_fmt(record["time_use"])[4:]}  {record["score"]}")
         print("\n"

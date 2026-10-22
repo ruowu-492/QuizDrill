@@ -1,19 +1,18 @@
 import flet as ft
-from enum import IntEnum
+from typing import Callable, Optional
 import asyncio
 
-class ExamStat(IntEnum):
-    timeout = 1
 
+
+@ft.control
 class CountdownTimer(ft.Text):
-    def __init__(self, duration_seconds:int, on_finish=None):
-        super().__init__()
-        self.total_duration = duration_seconds   #总时长
-        self.remaining = duration_seconds  #剩余时间
-        self.on_finish = on_finish  # 倒计时结束时的回调事件
-        self.is_running = False
-        self.is_paused = False
-        self.task = None
+    time:int = None ; on_finish: Optional[Callable] = None
+    is_running:bool = False ; is_paused:bool = False
+
+    def init(self):
+        self.total_duration = self.time   #总时长
+        self.remaining = self.time  #剩余时间
+        task = None
 
     def did_mount(self):
         self.start()
@@ -52,7 +51,7 @@ class CountdownTimer(ft.Text):
                 self.update()
                 if self.remaining == 0:
                     if self.on_finish:
-                        self.on_finish(ExamStat.timeout)  #触发时间到事件
+                        self.on_finish()  #触发时间到事件
                     self.is_running = False
                     break
                 self.remaining -= 1

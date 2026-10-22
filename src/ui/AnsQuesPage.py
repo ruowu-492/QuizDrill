@@ -9,6 +9,7 @@ class ExamStat(IntEnum):
     pause = 0
     timeout = 1
     fail = 2
+    submit = 3
 
 def ans_time_fmt(sec:int) ->str:
     """将秒数格式化为时分秒"""
@@ -34,25 +35,24 @@ ques_opt = ft.Ref[ft.ListView]()   #选项
 
 class QuesEvens:
     currect = 0 ; error = 0 ;qbody = None
-
-    ques_end = False
+    ques_end = False ; is_fail = False
     def __init__(self, QS:QuestionService, page:ft.Page):
         self.QS = QS
-        self.is_exam = self.QS.QuesMode == QuestionMode.exam
         self.QS.init_ques()
+        self.is_exam = self.QS.QuesMode == QuestionMode.exam
+        self.is_mem = self.QS.QuesMode == QuestionMode.mem
         self.ques_len = QS.get_ques_len()
         self.QList = QIndexList()
         self.QList.build_items(self.ques_len, on_click=self.to_ques)
-        self.timer = CountdownTimer(2700, on_finish=self.exam_to_home)
+        self.timer = CountdownTimer(time=2700, on_finish=self.exam_to_home, data=ExamStat.timeout)
         self.progre_dict = {}  # 如果用户对于某题回答正确该value为True,否则为用户选择的索引
         self.s_time = int(time())
         self.page = page
 
     def to_home(self, e=None):
         if self.is_exam:
-            self.exam_to_home(ExamStat.pause)
+            self.exam_to_home(stat=ExamStat.pause)
         else:
-            # ft.AlertDialog.
             dialog = ft.AlertDialog(
                 modal=True,
                 title="练习结束!",
@@ -62,12 +62,14 @@ class QuesEvens:
             )
             self.page.show_dialog(dialog)
 
-    def exam_to_home(self, stat:ExamStat):
+    def exam_to_home(self, e=None, stat:ExamStat=None):
         self.timer.stop()
+        if stat is None:
+            stat = e.control.data
+        time_use = int(time())-self.s_time
         match stat:
             case ExamStat.pause:
                 if self.ques_end:
-                    time_use = int(time())-self.s_time
                     self.QS.submit_exam(self.s_time, time_use, self.currect*2)
                     dialog = ft.AlertDialog(
                         modal=True,
@@ -91,21 +93,21 @@ class QuesEvens:
                     )
                     self.page.show_dialog(dialog)
             case ExamStat.fail:
-                time_use = int(time()) - self.s_time
-                self.QS.submit_exam(self.s_time, time_use, self.currect * 2)
                 dialog = ft.AlertDialog(
                     modal=True,
-                    title="考试结束，成绩不合格!",
-                    content=ft.Text(f"本次考试成绩为: {self.currect * 2}分"
-                                    f"{ans_summa(self.s_time, int(time()), self.currect, self.error)}"),
-                    actions=[ft.Button("回家练习", on_click=lambda e: self.page.navigate("/"))],
+                    title="本次考试成绩已不合格!",
+                    content=ft.Text("你现在可选继续考试或直接提交成绩。"),
+                    actions=[
+                        ft.Button("继续考试", on_click=lambda e: (self.timer.start(), self.page.pop_dialog())),
+                        ft.Button("回家练习", on_click=lambda e: (
+                            self.QS.submit_exam(self.s_time, time_use, self.currect * 2),
+                            self.page.navigate("/")))],
                     actions_alignment=ft.MainAxisAlignment.END
                 )
                 self.page.show_dialog(dialog)
             case ExamStat.timeout:
-                time_use = int(time()) - self.s_time
                 self.QS.submit_exam(self.s_time, time_use, self.currect * 2)
-                if self.currect*2 >=60:
+                if self.currect*2 >=80:
                     title = "时间到,成绩合格!"
                 else:
                     title = "时间到,成绩不合格!"
@@ -118,9 +120,19 @@ class QuesEvens:
                     actions_alignment=ft.MainAxisAlignment.END
                 )
                 self.page.show_dialog(dialog)
-
-    def on_view_pop(self, e):
-        ...
+            case ExamStat.submit:
+                dialog = ft.AlertDialog(
+                    modal=True,
+                    title="准备提交!",
+                    content=ft.Text(f"本次考试已获得{self.currect*2}分，及格分为80分，确认提交?"),
+                    actions=[
+                        ft.Button("继续考试", on_click=lambda e: (self.timer.start(), self.page.pop_dialog())),
+                        ft.Button("确认提交", on_click=lambda e: (
+                            self.QS.submit_exam(self.s_time, time_use, self.currect * 2),
+                            self.page.navigate("/")))],
+                    actions_alignment=ft.MainAxisAlignment.END
+                )
+                self.page.show_dialog(dialog)
 
     def on_opt(self, e):
         ures = e.control.key
@@ -136,8 +148,9 @@ class QuesEvens:
             self.error += 1
         progre_txt.current.value = f"{len(self.progre_dict)} / {self.ques_len}"
         self.QS.reply(qid, option_dict[ures])
-        if self.is_exam and self.error*2 > 2:
-            self.exam_to_home(ExamStat.fail)
+        if not self.is_fail and self.is_exam and self.error*2 > 20:
+            self.is_fail = True
+            self.exam_to_home(stat=ExamStat.fail)
         if len(self.progre_dict) == self.ques_len:
             self.to_home()
         self.update_ques(switch=False)
@@ -183,7 +196,7 @@ class QuesEvens:
                     self.qbody = self.QS.QBase.get_ques(False)
             ques_text.current.value = f"第{self.QS.QBase.ques_curr+1}题: {self.qbody.ques}"
             i = 0 ; body = [] ; qid = self.qbody.qid
-            if self.QS.QuesMode == QuestionMode.mem:
+            if self.is_mem:
                 ans_alr = True
                 self.progre_dict[qid] = self.qbody.ans_index
             else:
@@ -261,24 +274,26 @@ class AnsQues(QuesEvens):
             height=25,
             controls=[
                 ft.Row(expand=1, controls=[ft.Button("上一题", expand=True, on_click=self.prev_ques)]),
-                ft.Row(expand=1, controls=[ft.Button("下一题", expand=True, on_click=self.next_ques)])
             ]
         )
+        if self.is_exam:
+            body.controls.append(ft.Button("交卷", on_click=self.exam_to_home, data=ExamStat.submit))
+        body.controls.append(ft.Row(expand=1, controls=[ft.Button("下一题", expand=True, on_click=self.next_ques)]))
         self.next_ques()
         return body
 
 
 def ansqies_page(ques_serv, page:ft.Page):
     AQ = AnsQues(ques_serv, page)
-    # page.on_view_pop = self.on_view_pop   #系统返回待实现
+    page.on_view_pop = AQ.to_home
     body = ft.SafeArea(
         expand=True,
         content=ft.Column(
             expand=True,
             controls=[
-                AQ.topbar(),
-                AQ.ansques(),
-                AQ.switchques()
+                AQ.topbar(),      #顶部信息条
+                AQ.ansques(),     #中部答题区
+                AQ.switchques()   #底部切题区
             ]
         )
     )

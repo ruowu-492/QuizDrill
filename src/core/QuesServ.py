@@ -99,9 +99,9 @@ class QuestionBase(DBBase):
     ques_consumed = set()
     ques_curr = None
 
-    def __init__(self, path) -> None:
-        super().__init__(path)
-        with open(path_join(path, "question.json"), "r", encoding="utf-8") as f:
+    def __init__(self, ques_path, db_path) -> None:
+        super().__init__(db_path)
+        with open(path_join(ques_path, "question.json"), "r", encoding="utf-8") as f:
             ques = load(f)
             self.QUES = {int(qid): que for qid, que in ques.items()}
         #QUES表不存在则新建并初始化
@@ -112,7 +112,7 @@ class QuestionBase(DBBase):
         #EXAMS表不存在则新建
         db_res = self.exec("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='EXAMS')")
         if not db_res.fetchone()[0]:
-            self.exec("CREATE TABLE EXAMS(ID INTEGER PRIMARY KEY, START_TIME INTEGER , TIME_USE INT, SCORE INT)")
+            self.exec("CREATE TABLE EXAMS(START_TIME INTEGER , TIME_USE INT, SCORE INT)")
 
     def order_mode_init(self):
         db_res = self.select_id(DBEnum.Column.STAT, DBEnum.Stat.NotAns, need_min=True)
@@ -208,9 +208,10 @@ class QuestionBase(DBBase):
 class QuestionService:
     QuesMode = QuestionMode.order
 
-    def __init__(self, assets_path):
+    def __init__(self, question_path, database_path=None):
         """题目管理接口初始化时需提供跨平台的资源文件夹路径"""
-        self.QBase = QuestionBase(assets_path)
+        if database_path is None: database_path = question_path
+        self.QBase = QuestionBase(question_path, database_path)
 
     def init_ques(self) ->bool:
         match self.QuesMode:
@@ -280,16 +281,19 @@ class QuestionService:
         err_len = len(db_res.fetchall())    #答错数量
         pract_number = corr_len+err_len     #已练习总量
         comple_deg = pract_number/ques_len  #题库完成度
-        accuracy = corr_len/pract_number    #答题准确性
+        if pract_number == 0:
+            accuracy = 0.00
+        else:
+            accuracy = corr_len/pract_number    #答题准确性
         return {"ques_len":ques_len, "corr_len":corr_len, "err_len":err_len,
                 "pract_number":pract_number, "comple_deg":comple_deg, "accuracy":accuracy}
 
     def get_exam_record(self) ->dict[int:dict]:
         """获取考试记录，返回格式化的字典"""
-        db_res = self.QBase.exec("SELECT * FROM EXAMS")
-        exam_record = {}
+        db_res = self.QBase.exec("SELECT * FROM EXAMS ORDER BY START_TIME DESC")
+        exam_record = []
         for record in db_res.fetchall():
-            exam_record[record[0]] = {"start_time":record[1], "time_use":record[2], "score":record[3]}
+            exam_record.append({"start_time":record[0], "time_use":record[1], "score":record[2]})
         return exam_record
 
     def get_pass_rate(self) ->float:
