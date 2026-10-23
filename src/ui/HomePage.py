@@ -242,11 +242,11 @@ class Home:
                 "\n————2026-10-23-05"),
             actions=[ft.Button("Gitee",
                                on_click=lambda e:self.page.pop_dialog(),
-                               action=ft.OpenUrl("https://gitee.com/ruowu47927/quiz-drill_releases/releases")
+                               action=ft.OpenUrl("https://gitee.com/ruowu47927/quiz-drill_releases/releases", ft.UrlTarget.BLANK)
                                ),
                 ft.Button("GitHub",
                           on_click=lambda e:self.page.pop_dialog(),
-                          action=ft.OpenUrl("https://github.com/ruowu-492/QuizDrill")
+                          action=ft.OpenUrl("https://github.com/ruowu-492/QuizDrill", ft.UrlTarget.BLANK)
                           ),
                 ft.Button("Close", on_click=lambda e: self.page.pop_dialog())],
             actions_alignment=ft.MainAxisAlignment.END
