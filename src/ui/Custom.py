@@ -1,5 +1,5 @@
-import flet as ft
 from typing import Callable, Optional
+import flet as ft
 import asyncio
 
 
@@ -81,30 +81,3 @@ class QIndexList(ft.GridView):
         """更新对应题索引的背景色"""
         item = self.controls[index]
         item.bgcolor = color
-
-# QL = QIndexList()
-# QL.build_items(100)
-# def main(page):
-#     sheet = ft.BottomSheet(
-#         fullscreen=True,
-#         show_drag_handle=True,
-#         content=ft.Container(
-#             padding=ft.Padding.all(10),
-#             content=ft.Column(
-#                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-#                 controls=[
-#                     QL,
-#                     ft.Button("退出跳题页", on_click=lambda: page.pop_dialog()),
-#                 ],
-#             ),
-#         ),
-#     )
-#     page.add(ft.Column(
-#         controls=[
-#             ft.Button(
-#                 "Display button sheet.",
-#                 on_click=lambda e: page.show_dialog(sheet)
-#             )
-#         ]
-#     ))
-# ft.run(main)

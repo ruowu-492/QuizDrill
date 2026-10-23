@@ -1,5 +1,5 @@
-from ui.Custom import CountdownTimer, QIndexList
 from core.QuesServ import QuestionMode, QuestionService
+from ui.Custom import CountdownTimer, QIndexList
 from core.QuesServ import QuestionEndError
 from enum import IntEnum
 from time import time
@@ -73,7 +73,7 @@ class QuesEvens:
                     self.QS.submit_exam(self.s_time, time_use, self.currect*2)
                     dialog = ft.AlertDialog(
                         modal=True,
-                        title="考试结束，成绩合格!",
+                        title="考试结束,成绩合格!",
                         content=ft.Text(f"本次考试成绩为: {self.currect*2}分"
                                         f"{ans_summa(self.s_time, int(time()), self.currect, self.error)}"),
                         actions=[ft.Button("回家庆祝", on_click=lambda e: self.page.navigate("/"))],
@@ -84,7 +84,7 @@ class QuesEvens:
                     dialog = ft.AlertDialog(
                         modal=True,
                         title="考试已暂停!",
-                        content=ft.Text("已为你暂停考试，也可直接返回主页，但不会显示练习总结且不会记录本次考试。"),
+                        content=ft.Text("已为你暂停考试,也可直接返回主页,但不会显示练习总结且不会记录本次考试。"),
                         actions=[
                             ft.Button("回家", on_click=lambda e: self.page.navigate("/")),
                             ft.Button("继续考试", on_click=lambda e: (self.timer.start(), self.page.pop_dialog()))
@@ -124,7 +124,7 @@ class QuesEvens:
                 dialog = ft.AlertDialog(
                     modal=True,
                     title="准备提交!",
-                    content=ft.Text(f"本次考试已获得{self.currect*2}分，及格分为80分，确认提交?"),
+                    content=ft.Text(f"本次考试已获得{self.currect*2}分,及格分为80分,确认提交?"),
                     actions=[
                         ft.Button("继续考试", on_click=lambda e: (self.timer.start(), self.page.pop_dialog())),
                         ft.Button("确认提交", on_click=lambda e: (
@@ -184,7 +184,7 @@ class QuesEvens:
     def next_ques(self, e=None):
         self.update_ques()
 
-    def prev_ques(self, e):
+    def prev_ques(self, e=None):
         self.update_ques(False)
 
     def update_ques(self, direction:bool=True, switch:bool=True):
@@ -286,13 +286,26 @@ class AnsQues(QuesEvens):
 def ansqies_page(ques_serv, page:ft.Page):
     AQ = AnsQues(ques_serv, page)
     page.on_view_pop = AQ.to_home
+
+    def on_drag_end(e: ft.DragEndEvent):
+        if e.primary_velocity is not None:
+            #primary_velocity是拖拽结束时的速度,用来区分是“滑动”还是“慢慢拖动”
+            if e.primary_velocity < -200:  #向左侧快速滑动(速度 < -200像素/秒)
+                AQ.next_ques()
+            elif e.primary_velocity > 200: #向右侧快速滑动
+                AQ.prev_ques()
+
     body = ft.SafeArea(
         expand=True,
         content=ft.Column(
             expand=True,
             controls=[
                 AQ.topbar(),      #顶部信息条
-                AQ.ansques(),     #中部答题区
+                ft.GestureDetector(
+                    expand=True,
+                    content=AQ.ansques(),  #中部答题区
+                    on_horizontal_drag_end=on_drag_end
+                ),
                 AQ.switchques()   #底部切题区
             ]
         )

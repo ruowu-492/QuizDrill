@@ -1,8 +1,8 @@
-import sqlite3
 from enum import Enum, IntEnum, StrEnum
 from os.path import join as path_join
 from random import sample
 from json import load
+import sqlite3
 
 
 # 数据库操作枚举
@@ -190,7 +190,7 @@ class QuestionBase(DBBase):
             if len(self.ques_list) == len(self.ques_consumed):   #判断练习是否完成
                 raise QuestionEndError("Practice complete.")
             else:
-                self.ques_curr -= 1
+                if self.ques_curr != 0: self.ques_curr -= 1
                 raise QuestionSwitchError("Execute prev ques or next into a boundary.") from IE
         qbody = self.QUES[qid]
         ans = self.get_ans_opt(qid)

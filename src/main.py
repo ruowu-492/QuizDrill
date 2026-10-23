@@ -1,8 +1,8 @@
 from core.QuesServ import QuestionService
-from ui.HomePage import home_page
 from ui.AnsQuesPage import ansqies_page
-from pathlib import Path
+from ui.HomePage import home_page
 from os import environ, getenv
+from pathlib import Path
 import flet as ft
 
 
@@ -24,7 +24,6 @@ def main(page:ft.Page):
     QS = QuestionService(assetr_dir, data_path)
     page.fonts = {"Sans": "SourceHanSansSC-Regular.otf"}
     page.theme = ft.Theme(font_family="Sans")
-    # page.theme_mode = ft.ThemeMode.DARK
     page.window.min_height = 400
     page.window.min_width = 650
 

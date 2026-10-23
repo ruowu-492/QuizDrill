@@ -1,7 +1,6 @@
 from core.QuesServ import QuestionMode, QuestionService
 from datetime import datetime
 from enum import Enum
-import webbrowser
 import flet as ft
 
 class ResetType(Enum):
@@ -21,7 +20,6 @@ def ans_time_fmt(sec:int) ->str:
     m, s = divmod(sec, 60)
     return f"{m}分{s}秒"
 
-@ft.control
 class HomeButton(ft.Button):
     def init(self):
         self.style = ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10))
@@ -52,6 +50,7 @@ class Home:
     statisti_txt = ft.Ref[ft.Text]()
     practice_item = ft.Ref[ft.ListTile]()
     practice_drop = ft.Ref[ft.Dropdown]()
+    theme_mode_toggle = ft.Ref[ft.IconButton]()
 
     def __init__(self, ques_serv:QuestionService, page:ft.Page):
         super().__init__()
@@ -77,17 +76,29 @@ class Home:
 
     def appbar(self):
         return ft.AppBar(
-        title=ft.Text("QuizDrill - v1.0"),
+        title=ft.Text("QuizDrill - v1.1"),
         center_title=False,
         bgcolor=ft.Colors.BLUE_GREY_400,
         actions=[
+            ft.IconButton(
+                key="theme_mode_toggle",
+                ref=self.theme_mode_toggle,
+                icon=(
+                    ft.Icons.WB_SUNNY_OUTLINED
+                    if self.page.theme_mode == ft.ThemeMode.LIGHT
+                    else ft.Icons.WB_SUNNY
+                ),
+                on_click=self.toggle_theme_mode,
+            ),
             ft.PopupMenuButton(
                 key="popup",
                 items=[
-                    ft.PopupMenuItem(content="重置数据", on_click=self.on_reset),   #绑定数据重置接口
-                    ft.PopupMenuItem(content="检查更新", on_click=self.app_update),   #绑定检查更新
-                    ft.PopupMenuItem(content="项目仓库",
-                                     on_click=lambda e: webbrowser.open("https://github.com/ruowu-492/QuizDrill"))
+                    ft.PopupMenuItem(content=ft.TextButton("重置数据", on_click=self.on_reset)),   #绑定数据重置接口
+                    ft.PopupMenuItem(content=ft.TextButton("检查更新", on_click=self.app_update)),   #绑定检查更新
+                    ft.PopupMenuItem(content=ft.TextButton(
+                        "项目仓库",
+                        action=ft.OpenUrl("https://github.com/ruowu-492/QuizDrill", ft.UrlTarget.BLANK)
+                    ))
                 ],
             ),
         ],
@@ -164,6 +175,18 @@ class Home:
             )
         return body
 
+    def toggle_theme_mode(self, e: ft.Event[ft.IconButton]):
+        self.page.theme_mode = (
+            ft.ThemeMode.DARK
+            if self.page.theme_mode == ft.ThemeMode.LIGHT
+            else ft.ThemeMode.LIGHT
+        )
+        self.theme_mode_toggle.icon = (
+            ft.Icons.WB_SUNNY_OUTLINED
+            if self.page.theme_mode == ft.ThemeMode.LIGHT
+            else ft.Icons.WB_SUNNY
+        )
+
     def on_reset(self, e):
         dialog = ft.AlertDialog(
             modal=True,
@@ -175,7 +198,7 @@ class Home:
                               on_click=lambda e: (self.page.pop_dialog(), self.reset_data(ResetType.practice))),
                     ft.Button("重置考试数据",
                               on_click=lambda e: (self.page.pop_dialog(), self.reset_data(ResetType.exam))),
-                    ft.Button("重建练习数据",
+                    ft.Button("重建练习状态",
                               on_click=lambda e: (self.page.pop_dialog(), self.reset_data(ResetType.database)))
                 ]
             ),
@@ -187,13 +210,13 @@ class Home:
     def reset_data(self, reset_type):
         match reset_type:
             case ResetType.practice:
-                content = ft.Text("该操作将操作练习数据且不可逆, 请谨慎选择!", color=ft.Colors.RED)
+                content = ft.Text("该操作将重置练习数据且不可逆, 请谨慎选择!", color=ft.Colors.RED)
                 on_click = lambda :(self.QS.reset_stat(), self.init(), self.page.update(), self.page.pop_dialog())
             case ResetType.exam:
                 content = ft.Text("该操作将清空考试统计且不可逆, 请谨慎选择!", color=ft.Colors.RED)
                 on_click = lambda: (self.QS.reset_exams(), self.init(),  self.page.update(), self.page.pop_dialog())
             case ResetType.database:
-                content = ft.Text("该操作将根据题库当前内容重新建立状态映射,这也会重置练习数据且不可逆,请谨慎操作!\n\n"
+                content = ft.Text("该操作将根据题库当前内容重新建立状态映射表,这也会重置练习数据且不可逆,请谨慎操作!\n\n"
                                   "备注: 对于状态映射错位和题库发生有效更新等情况可能修复某些疑问。", color=ft.Colors.RED)
                 on_click = lambda: (self.QS.rebuilt_data_base(), self.init(),  self.page.update(), self.page.pop_dialog())
         dialog = ft.AlertDialog(
@@ -211,17 +234,20 @@ class Home:
         dialog = ft.AlertDialog(
             modal=True,
             title="关于更新",
-            content=ft.Text("突然不想继续倒腾自动更新的事了,那需要额外引入联网支持去我的仓库下载版本文件进行比对,最近手搓的东西已经很多了。"
-                "虽然我之前搓的云奏下载器刚好能满足自动下载安装包的需求,但我估摸着这项目近期也没啥更新吧。"
-                "哦,说起这个我还规划了多用户多题库来着,但再肝下去迟早撑不住(多种含义)。"
-                "所以我选择直接在这留下我在gitee的发行仓库。"
-                "或者你也可以试试前往我存源码的GitHub仓库尝试与我取得联系啥的。"
-                "\n\n————2026-10-23-05"),
-            actions=[ft.Button("Gitee", on_click=lambda e:(
-                                webbrowser.open("https://gitee.com/ruowu47927/quiz-drill_releases/releases"),
-                                self.page.pop_dialog())),
-                ft.Button("GitHub", on_click=lambda e:(webbrowser.open("https://github.com/ruowu-492/QuizDrill"),
-                                                       self.page.pop_dialog())),
+            content=ft.Text("突然不想继续倒腾自动更新的事了,那需要额外引入联网支持去我的仓库下载版本文件进行比对,最近手搓的东西已经很多了。\n"
+                "虽说我之前搓的云奏下载器刚好能满足自动下载安装包的需求,但我估摸着这项目近期也没啥更新吧。\n"
+                "哦,说起这个我还规划了多用户多题库来着,但再肝下去迟早撑不住(多种含义)。\n"
+                "所以我选择直接在这留下我在gitee的发行仓库。\n"
+                "或者你也可以试试前往我存源码的GitHub仓库尝试与我取得联系啥的。\n"
+                "\n————2026-10-23-05"),
+            actions=[ft.Button("Gitee",
+                               on_click=lambda e:self.page.pop_dialog(),
+                               action=ft.OpenUrl("https://gitee.com/ruowu47927/quiz-drill_releases/releases")
+                               ),
+                ft.Button("GitHub",
+                          on_click=lambda e:self.page.pop_dialog(),
+                          action=ft.OpenUrl("https://github.com/ruowu-492/QuizDrill")
+                          ),
                 ft.Button("Close", on_click=lambda e: self.page.pop_dialog())],
             actions_alignment=ft.MainAxisAlignment.END
         )
